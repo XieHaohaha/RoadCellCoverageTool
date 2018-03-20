@@ -48,7 +48,7 @@ public class Road {
 
 		polygonPoints = getPointsFromBytes(polygonPointBytes);
 
-		// 点在多边形内算法优化
+		// 多边形对应的矩形
 		RectanglePoints = getPointsFromPolygonPoints(polygonPoints);
 	}
 
@@ -74,9 +74,9 @@ public class Road {
 
 	private List<Point> getPointsFromPolygonPoints(List<Point> points) {
 		List<Point> lstPoints = new ArrayList<Point>();
-		double lngMin = 0;//经度最小值
+		double lngMin = 180;//经度最小值
 		double lngMax = 0;//经度最大值
-		double latMin = 0;//纬度最小值
+		double latMin = 180;//纬度最小值
 		double latMax = 0;//纬度最大值
 		
 		//计算经度最小值
