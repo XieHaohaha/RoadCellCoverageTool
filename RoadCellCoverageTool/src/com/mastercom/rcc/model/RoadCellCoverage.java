@@ -10,8 +10,6 @@ public class RoadCellCoverage {
 	
 	public final int eci;
 	
-	public String userIP;
-	
 	public int num = 0;
 	
 	public RoadCellCoverage(int stime, int etime, int subId, int eci){

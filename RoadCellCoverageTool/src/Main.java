@@ -24,9 +24,6 @@ public class Main {
 
 		long startTime = System.currentTimeMillis();// 获取当前时间
 
-		// 道路配置集合
-		// final List<Road> roadList = new ArrayList<>();
-
 		final Map<Point, List<Road>> gridMap = new HashMap<>();
 
 		try {
@@ -38,28 +35,16 @@ public class Main {
 					String[] words = line.split("\t");
 
 					Road road = new Road(words);
-					// roadList.add(road);
 
 					setGridMap(road, gridMap);
 				}
 			});
 
-			// Road road1 = roadList.get(0);
-			// List<Point> polygonPoints = road1.polygonPoints;
-			// for (int i = 0; i < polygonPoints.size(); i++) {
-			// System.out.println(polygonPoints.get(i).x + "\t" +
-			// polygonPoints.get(i).y);
-			// }
-			// System.out.println(road1.RectanglePoints.get(0).x + "\t" +
-			// road1.RectanglePoints.get(0).y);
-			// System.out.println(road1.RectanglePoints.get(1).x + "\t" +
-			// road1.RectanglePoints.get(1).y);
-
 			final Map<String, RoadCellCoverage> map = new HashMap<>();
 
 			// 加载数据
 
-			FileReader.readFile("D:\\loc1.dat", new LineHandler() {
+			FileReader.readFile("D:\\loc.dat", new LineHandler() {
 
 				@Override
 				public void handle(String line) {
@@ -85,19 +70,17 @@ public class Main {
 								int time = locationItem.itime;
 								int eci = locationItem.eci;
 								RoadCellCoverage roadCellCoverage = new RoadCellCoverage(subId, time, time, eci);
-								roadCellCoverage.userIP = locationItem.userIP;
 
-								String subIdEci = "" + road.subId + locationItem.eci;
+								String subIdEci = "" + road.subId + "__" + locationItem.eci;
 								if (map.keySet().contains(subIdEci)) {
 									RoadCellCoverage coverage = map.get(subIdEci);
 									coverage.num++;
-									if (time > coverage.stime && time < coverage.etime) {
-										map.put(subIdEci, coverage);
-									}else if(time < coverage.stime){
+									if (time < coverage.stime) {
 										coverage.stime = time;
 									}else if(time > coverage.etime){
 										coverage.etime = time;
 									}
+									map.put(subIdEci, coverage);
 								} else {
 									roadCellCoverage.num = 1;
 									map.put(subIdEci, roadCellCoverage);
@@ -105,13 +88,12 @@ public class Main {
 							}
 						}
 					}
-					// System.out.println(locationList);
 				}
 			});
 
 			for (RoadCellCoverage value : map.values()) {
 				System.out.println(value.subId + "\t" + value.stime + "\t"
-						+ value.etime + "\t" + value.eci + "\t" + value.num + "\t" + value.userIP);
+						+ value.etime + "\t" + value.eci + "\t" + value.num);
 			}
 
 			long endTime = System.currentTimeMillis();
@@ -151,9 +133,6 @@ public class Main {
 		int latrightTopGrid = ((int) (rightTopPoint.y * 100000)) / gridSize
 				* gridSize;
 
-		// System.out.println(lngLeftLowerGrid + "\t" + latLeftLowerGrid + "\t"
-		// + lngrightTopGrid + "\t" + latrightTopGrid);
-
 		for (int i = lngLeftLowerGrid; i <= lngrightTopGrid;) {
 			for (int j = latLeftLowerGrid; j <= latrightTopGrid;) {
 				Point subLeftLowerGrid = new Point(i, j);
@@ -172,29 +151,4 @@ public class Main {
 		}
 
 	}
-
-	// 点在多边形内算法优化
-	public static boolean isPointInOrOnRectangle(double x, double y,
-			List<Point> points) {
-		int intResult = checkPointInOrOnRectangle(x, y, points);
-		return intResult != 0;
-	}
-
-	public static int checkPointInOrOnRectangle(double x, double y,
-			List<Point> points) {
-		int intResult = 0;// 0在矩形外，1在矩形里面，-1在矩形边界上
-		Point leftTop = points.get(0);
-		Point rightLower = points.get(1);
-
-		if (x > leftTop.x && x < rightLower.x && y > leftTop.y
-				&& y < rightLower.y) {
-			intResult = 1;
-		} else if (x == leftTop.x && x == rightLower.x && y == leftTop.y
-				&& y == rightLower.y) {
-			intResult = -1;
-		}
-
-		return intResult;
-	}
-
 }
