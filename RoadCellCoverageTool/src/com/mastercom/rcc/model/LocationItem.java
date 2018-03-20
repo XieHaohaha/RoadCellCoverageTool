@@ -26,8 +26,8 @@ public class LocationItem {
 		int i = startPos;
 
 		try {
-			imsi = DataGeter.GetLong(vals[i++], 0);
-			tmTime = DataGeter.GetLong(vals[i++], 0);
+			imsi = DataGeter.GetLong(vals[i++], 0);//i==0
+			tmTime = DataGeter.GetLong(vals[i++], 0);//i==1
 			if ((tmTime + "").length() == 13) {
 				itime = (int) (tmTime / 1000L);
 				itimeMS = (int) (tmTime % 1000L);
@@ -36,7 +36,7 @@ public class LocationItem {
 				itimeMS = 0;
 			}
 
-			tmTime = DataGeter.GetLong(vals[i++], 0);
+			tmTime = DataGeter.GetLong(vals[i++], 0);//i==2
 			if ((tmTime + "").length() == 13) {
 				locTime = (int) (tmTime / 1000L);
 				locTimeMS = (int) (tmTime % 1000L);
@@ -50,15 +50,15 @@ public class LocationItem {
 			// TODO: handle finally clause
 		}
 
-		eci = DataGeter.GetInt(vals[i++]);
-		userIP = vals[i++];
-		port = DataGeter.GetInt(vals[i++], 0);
-		serverIP = vals[i++];
-		location = DataGeter.GetInt(vals[i++], 0);
-		loctp = vals[i++];
-		radius = DataGeter.GetDouble(vals[i++], -1);
-		longitude = DataGeter.GetDouble(vals[i++], 0);
-		latitude = DataGeter.GetDouble(vals[i++], 0);
+		eci = DataGeter.GetInt(vals[i++]);//i==3
+		userIP = vals[i++];//i==4
+		port = DataGeter.GetInt(vals[i++], 0);//i==5
+		serverIP = vals[i++];//i==6
+		location = DataGeter.GetInt(vals[i++], 0);//i==7
+		loctp = vals[i++];//i==8
+		radius = DataGeter.GetDouble(vals[i++], -1);//i==9
+		longitude = DataGeter.GetDouble(vals[i++], 0);//i==10
+		latitude = DataGeter.GetDouble(vals[i++], 0);//i==11
 		i++;// location bak
 		if (i <= vals.length - 1) {
 			wifiName = vals[i++];

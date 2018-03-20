@@ -1,12 +1,7 @@
-import java.io.FileNotFoundException;
-import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 
 import com.mastercom.rcc.model.LocationItem;
 import com.mastercom.rcc.model.Point;
@@ -17,8 +12,8 @@ import com.mastercom.rcc.util.FileReader.LineHandler;
 import com.mastercom.rcc.util.PolygonUtil;
 
 public class Main {
-	
-	static long startTime = 0;
+
+	final static int gridSize = 400;
 
 	public static void main(String[] args) {
 		// Step1: 加载 线路配置
@@ -27,26 +22,12 @@ public class Main {
 
 		// Step1.2：以左上右下的点组成的矩形
 
-		startTime = System.currentTimeMillis();// 获取当前时间
-
-		// 结果写入文件
-		// try {
-		// PrintStream ps = new PrintStream("D:/log.txt");
-		// System.setOut(ps);
-		// } catch (FileNotFoundException e1) {
-		// e1.printStackTrace();
-		// }
+		long startTime = System.currentTimeMillis();// 获取当前时间
 
 		// 道路配置集合
-		final List<Road> roadList = new ArrayList<>();
+		// final List<Road> roadList = new ArrayList<>();
 
-		final TreeMap<Double, Road> lngMinMap = new TreeMap<>();// 经度最小值
-
-		final TreeMap<Double, Road> lngMaxMap = new TreeMap<>();// 经度最大值
-
-		final TreeMap<Double, Road> latMinMap = new TreeMap<>();// 纬度最小值
-
-		final TreeMap<Double, Road> latMaxMap = new TreeMap<>();// 纬度最大值
+		final Map<Point, List<Road>> gridMap = new HashMap<>();
 
 		try {
 			FileReader.readFiles("D:\\tb.txt", new LineHandler() {
@@ -57,28 +38,28 @@ public class Main {
 					String[] words = line.split("\t");
 
 					Road road = new Road(words);
-					roadList.add(road);
-					setMapsFromPolygonPoints(road, lngMinMap, lngMaxMap,
-							latMinMap, latMaxMap);
+					// roadList.add(road);
+
+					setGridMap(road, gridMap);
 				}
 			});
-			
-//			System.out.println(lngMinMap.size());
-//			System.out.println(latMaxMap.size());
-//			
-//			Road road1 = roadList.get(1);
-//			List<Point> polygonPoints = road1.polygonPoints;
-//			for (int i = 0; i < polygonPoints.size(); i++) {
-//				System.out.println(polygonPoints.get(i).x + "\t" + polygonPoints.get(i).y);
-//			}
-//			System.out.println(road1.RectanglePoints.get(0).x + "\t" + road1.RectanglePoints.get(0).y);
-//			System.out.println(road1.RectanglePoints.get(1).x + "\t" + road1.RectanglePoints.get(1).y);
+
+			// Road road1 = roadList.get(0);
+			// List<Point> polygonPoints = road1.polygonPoints;
+			// for (int i = 0; i < polygonPoints.size(); i++) {
+			// System.out.println(polygonPoints.get(i).x + "\t" +
+			// polygonPoints.get(i).y);
+			// }
+			// System.out.println(road1.RectanglePoints.get(0).x + "\t" +
+			// road1.RectanglePoints.get(0).y);
+			// System.out.println(road1.RectanglePoints.get(1).x + "\t" +
+			// road1.RectanglePoints.get(1).y);
 
 			final Map<String, RoadCellCoverage> map = new HashMap<>();
 
 			// 加载数据
 
-			FileReader.readFile("D:\\loc.dat", new LineHandler() {
+			FileReader.readFile("D:\\loc1.dat", new LineHandler() {
 
 				@Override
 				public void handle(String line) {
@@ -93,43 +74,44 @@ public class Main {
 
 					double longitude = locationItem.longitude;
 					double latitude = locationItem.latitude;
-					
-					System.out.println("求交集前：" + (System.currentTimeMillis() - startTime) + "ms");
-					Collection<Road> possibleRoad = getPossibleRoad(longitude, latitude, lngMinMap, lngMaxMap, latMinMap, latMaxMap);
-					System.out.println("求交集后：" + (System.currentTimeMillis() - startTime) + "ms");
-					Iterator<Road> iter = possibleRoad.iterator();  
-			        //通过循环迭代  
-			        while(iter.hasNext()){  
-			        	Road road = (Road)iter.next();
-			            List<Point> polygonPoints = road.polygonPoints;
-			            
-			            if (PolygonUtil.isPointInOrOnPolygon(longitude, latitude, polygonPoints)) {
-							int subId = road.subId;
-							int time = locationItem.itime;
-							int eci = locationItem.eci;
-							RoadCellCoverage roadCellCoverage = new RoadCellCoverage(
-									subId, time, time, eci);
+					List<Road> roadList = findRoadList(longitude, latitude, gridMap);
+					if (roadList != null) {
+						for (int i = 0; i < roadList.size(); i++) {
+							Road road = roadList.get(i);
+							List<Point> vertexes = road.polygonPoints;
 
-							String subIdEci = "" + road.subId
-									+ locationItem.eci;
-							if (map.keySet().contains(subIdEci)) {
-								RoadCellCoverage coverage = map.get(subIdEci);
-								if (time > coverage.stime
-										&& time < coverage.etime) {
-									return;
+							if (PolygonUtil.isPointInOrOnPolygon(longitude, latitude, vertexes)) {
+								int subId = road.subId;
+								int time = locationItem.itime;
+								int eci = locationItem.eci;
+								RoadCellCoverage roadCellCoverage = new RoadCellCoverage(subId, time, time, eci);
+								roadCellCoverage.userIP = locationItem.userIP;
+
+								String subIdEci = "" + road.subId + locationItem.eci;
+								if (map.keySet().contains(subIdEci)) {
+									RoadCellCoverage coverage = map.get(subIdEci);
+									coverage.num++;
+									if (time > coverage.stime && time < coverage.etime) {
+										map.put(subIdEci, coverage);
+									}else if(time < coverage.stime){
+										coverage.stime = time;
+									}else if(time > coverage.etime){
+										coverage.etime = time;
+									}
+								} else {
+									roadCellCoverage.num = 1;
+									map.put(subIdEci, roadCellCoverage);
 								}
-							} else {
-								map.put(subIdEci, roadCellCoverage);
 							}
-
 						}
-			        }  
+					}
+					// System.out.println(locationList);
 				}
 			});
 
 			for (RoadCellCoverage value : map.values()) {
 				System.out.println(value.subId + "\t" + value.stime + "\t"
-						+ value.etime + "\t" + value.eci);
+						+ value.etime + "\t" + value.eci + "\t" + value.num + "\t" + value.userIP);
 			}
 
 			long endTime = System.currentTimeMillis();
@@ -141,49 +123,55 @@ public class Main {
 
 	}
 
-	private static Collection<Road> getPossibleRoad(double longitude,
-			double latitude, TreeMap<Double, Road> lngMinMap,
-			TreeMap<Double, Road> lngMaxMap, TreeMap<Double, Road> latMinMap,
-			TreeMap<Double, Road> latMaxMap) {
-		
-		System.out.println("headtail前：" + (System.currentTimeMillis() - startTime) + "ms");
-		Collection<Road> collection1 = lngMinMap.headMap(longitude).values();
-		Collection<Road> collection2 = lngMaxMap.tailMap(longitude).values();
-		Collection<Road> collection3 = latMinMap.headMap(latitude).values();
-		Collection<Road> collection4 = latMaxMap.tailMap(latitude).values();
-		System.out.println("headtail后：" + (System.currentTimeMillis() - startTime) + "ms");
-		
-		Collection<Road> intersection = intersection(collection1, collection2, collection3, collection4);
-		
-		return intersection;
+	// 筛选道路配置
+	private static List<Road> findRoadList(double longitude, double latitude,
+			Map<Point, List<Road>> gridMap) {
+
+		int lngLeftLowerGrid = ((int) (longitude * 100000)) / gridSize
+				* gridSize;
+		int latLeftLowerGrid = ((int) (latitude * 100000)) / gridSize
+				* gridSize;
+
+		return gridMap.get(new Point(lngLeftLowerGrid, latLeftLowerGrid));
 	}
 
-	private static void setMapsFromPolygonPoints(Road road,
-			TreeMap<Double, Road> lngMinMap, TreeMap<Double, Road> lngMaxMap,
-			TreeMap<Double, Road> latMinMap, TreeMap<Double, Road> latMaxMap) {
-		List<Point> rectanglePoints = road.RectanglePoints;
-		lngMinMap.put(rectanglePoints.get(0).x, road);
-		lngMaxMap.put(rectanglePoints.get(1).x, road);
-		latMinMap.put(rectanglePoints.get(0).y, road);
-		latMaxMap.put(rectanglePoints.get(1).y, road);
+	// 设置栅格Map
+	private static void setGridMap(Road road, Map<Point, List<Road>> gridMap) {
 
-//		System.out.println(lngMinMap.size());
+		Point leftLowerPoint = road.leftLowerPoint;
+		Point rightTopPoint = road.rightTopPoint;
+
+		// 栅格左下角和右上角边界的经纬度
+		int lngLeftLowerGrid = ((int) (leftLowerPoint.x * 100000)) / gridSize
+				* gridSize;
+		int latLeftLowerGrid = ((int) (leftLowerPoint.y * 100000)) / gridSize
+				* gridSize;
+		int lngrightTopGrid = ((int) (rightTopPoint.x * 100000)) / gridSize
+				* gridSize;
+		int latrightTopGrid = ((int) (rightTopPoint.y * 100000)) / gridSize
+				* gridSize;
+
+		// System.out.println(lngLeftLowerGrid + "\t" + latLeftLowerGrid + "\t"
+		// + lngrightTopGrid + "\t" + latrightTopGrid);
+
+		for (int i = lngLeftLowerGrid; i <= lngrightTopGrid;) {
+			for (int j = latLeftLowerGrid; j <= latrightTopGrid;) {
+				Point subLeftLowerGrid = new Point(i, j);
+				List<Road> roadList = gridMap.get(subLeftLowerGrid);
+				if (roadList == null) {
+					List<Road> list = new ArrayList<>();
+					list.add(road);
+					gridMap.put(subLeftLowerGrid, list);
+				} else {
+					roadList.add(road);
+					gridMap.put(subLeftLowerGrid, roadList);
+				}
+				j = j + 400;
+			}
+			i = i + 400;
+		}
+
 	}
-	
-	//求交集
-	public static <T> Collection<T> intersection(Collection<T> collection1,
-            Collection<T> collection2,Collection<T> collection3,Collection<T> collection4) {
-        Collection<T> collection = new ArrayList<T>(collection1); // How would it be??
-       /* for (T t : collection1) {
-            if (collection2.contains(t)&&collection3.contains(t)&&collection4.contains(t)) {
-                collection.add(t);
-            }
-        }*/
-        collection.retainAll(collection2);
-        collection.retainAll(collection3);
-        collection.retainAll(collection4);
-        return collection;
-    }
 
 	// 点在多边形内算法优化
 	public static boolean isPointInOrOnRectangle(double x, double y,

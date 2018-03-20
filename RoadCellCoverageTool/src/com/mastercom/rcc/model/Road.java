@@ -30,6 +30,10 @@ public class Road {
 	public List<Point> polygonPoints;
 
 	public List<Point> RectanglePoints;
+	
+	public final Point leftLowerPoint;
+	
+	public final Point rightTopPoint;
 
 	public Road(String[] args) {
 		if (args.length != 9) {
@@ -48,8 +52,11 @@ public class Road {
 
 		polygonPoints = getPointsFromBytes(polygonPointBytes);
 
-		// 多边形对应的矩形
+		// 获取矩形
 		RectanglePoints = getPointsFromPolygonPoints(polygonPoints);
+		
+		leftLowerPoint = RectanglePoints.get(0);
+		rightTopPoint = RectanglePoints.get(1);
 	}
 
 	private List<Point> getPointsFromBytes(byte[] borderBytes) {
@@ -94,8 +101,8 @@ public class Road {
 				latMax = points.get(i).y;
 			}
 		}
-		lstPoints.add(new Point(lngMin, latMin));
-		lstPoints.add(new Point(lngMax, latMax));
+		lstPoints.add(new Point(lngMin, latMin));//左下点
+		lstPoints.add(new Point(lngMax, latMax));//右上点
 		return lstPoints;
 	}
 
