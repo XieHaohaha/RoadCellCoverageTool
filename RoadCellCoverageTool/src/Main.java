@@ -27,20 +27,15 @@ public class Main {
 	final static int expansion = 20; //多边形周围20米
 	
 	public static void main(String[] args) {
-		// Step1: 加载 线路配置
-
-		// Step1.1：解析多边形的经纬度，存于List容器中
-
-		// Step1.2：以左上右下的点组成的矩形
 		
 		if (args.length < 3) {
 			System.out.println("usage:tbFilePath, dataFilePath, outputPath, HDFSPath" + "\n");
 			System.exit(0);
 		}
 		
-		String tbFilePath = args[0];
-		String dataFilePath = args[1];
-		String outputPath = args[2];
+		String tbFilePath = args[0];  //"/tmp/tb.txt"
+		String dataFilePath = args[1];//"/seq/loc/20171025/loc.dat"
+		String outputPath = args[2];  //"D://result.txt"
 
 		long startTime = System.currentTimeMillis();// 获取当前时间
 
@@ -50,11 +45,12 @@ public class Main {
 			Configuration conf = new Configuration();
 			
 			if (args.length > 3) {
-				String HDFSPath = args[3];
-				conf.set("fs.defaultFS", HDFSPath);//"hdfs://192.168.1.31:9000"
+				String HDFSPath = args[3];  //"hdfs://192.168.1.31:9000"
+				conf.set("fs.defaultFS", HDFSPath);
 			}
 			
-			FileReader.readFiles(conf, tbFilePath, new LineHandler() {  //"/tmp/tb.txt"
+			//加载道路配置
+			FileReader.readFiles(conf, tbFilePath, new LineHandler() {
 			
 				@Override
 				public void handle(String line) {
@@ -67,10 +63,10 @@ public class Main {
 				}
 			});
 
+			//subID+eci,输出对象
 			final Map<String, RoadCellCoverage> map = new HashMap<>();
 
 			// 加载数据
-
 			FileReader.readFile(conf, dataFilePath, new LineHandler() {
 			
 				@Override
@@ -91,10 +87,10 @@ public class Main {
 						for (Road road : roadSet) {
 							List<Point> vertexes = road.polygonPoints;
 
-							//点本身在多边形内，或者多边形的边与点对应的正方形的四条边相交，或者多边形的点在正方形内
+							//点本身在多边形内，或者多边形的边与点对应的正方形的四条边相交，或者多边形的点在正方形，或者多边形的点在正方形内
 							if (PolygonUtil.isPointInOrOnPolygon(longitude, latitude, vertexes) || isIntersect(longitude, latitude, vertexes) || isPolygonPointInOrOnSquare(longitude, latitude, vertexes)) {
 								int subId = road.subId;
-								int time = locationItem.itime;
+								int time = locationItem.locTime;
 								int eci = locationItem.eci;
 								RoadCellCoverage roadCellCoverage = new RoadCellCoverage(subId, time, time, eci);
 
@@ -120,7 +116,7 @@ public class Main {
 
 			final Collection<RoadCellCoverage> roadCellCoverageCollection = map.values();
 			
-			FileWriter.writeToFile(conf, outputPath, new LineGetter() {  //"D:\\result.txt"
+			FileWriter.writeToFile(conf, outputPath, new LineGetter() {
 				
 				Iterator<RoadCellCoverage> iterator = roadCellCoverageCollection.iterator();
 				
@@ -151,6 +147,7 @@ public class Main {
 
 	}
 
+	//判断多边形的边与点对应的正方形的四条边是否相交
 	protected static boolean isIntersect(double longitude, double latitude, List<Point> vertexes) {
 		
 		PointSquare ps = new PointSquare(new Point(longitude, latitude), expansion);
@@ -279,13 +276,6 @@ public class Main {
 		}
 
 		return roadSet;
-		
-//		int lngLeft = ((int) (longitude * 100000)) / gridSize
-//		* gridSize;
-//		int latLower = ((int) (latitude * 100000)) / gridSize
-//		* gridSize;
-//		
-//		return gridMap.get(new Point(lngLeft, latLower));
 		
 	}
 
