@@ -11,6 +11,7 @@ import org.apache.hadoop.conf.Configuration;
 
 import com.mastercom.rcc.model.LocationItem;
 import com.mastercom.rcc.model.Point;
+import com.mastercom.rcc.model.PointSquare;
 import com.mastercom.rcc.model.Road;
 import com.mastercom.rcc.model.RoadCellCoverage;
 import com.mastercom.rcc.util.FileReader;
@@ -18,6 +19,7 @@ import com.mastercom.rcc.util.FileReader.LineHandler;
 import com.mastercom.rcc.util.FileWriter;
 import com.mastercom.rcc.util.FileWriter.LineGetter;
 import com.mastercom.rcc.util.PolygonUtil;
+import com.mastercom.rcc.util.TwoSidesIntersecting;
 
 public class Main {
 
@@ -89,8 +91,8 @@ public class Main {
 						for (Road road : roadSet) {
 							List<Point> vertexes = road.polygonPoints;
 
-							//点本身在多边形内，或者点对应的正方形的四个点有任意一个点在多边形内，或者判断多边形的点是否在正方形内，或者多边形对应的矩形和正方形有交集
-							if (PolygonUtil.isPointInOrOnPolygon(longitude, latitude, vertexes) || isFourPointInOrOnPolygon(longitude, latitude, vertexes) || isPolygonPointInOrOnSquare(vertexes, longitude, latitude)) {
+							//点本身在多边形内，或者多边形的边与点对应的正方形的四条边相交，或者多边形的点在正方形内
+							if (PolygonUtil.isPointInOrOnPolygon(longitude, latitude, vertexes) || isIntersect(longitude, latitude, vertexes) || isPolygonPointInOrOnSquare(longitude, latitude, vertexes)) {
 								int subId = road.subId;
 								int time = locationItem.itime;
 								int eci = locationItem.eci;
@@ -149,9 +151,51 @@ public class Main {
 
 	}
 
+	protected static boolean isIntersect(double longitude, double latitude, List<Point> vertexes) {
+		
+		PointSquare ps = new PointSquare(new Point(longitude, latitude), expansion);
+		
+		for (int i = 0; i < vertexes.size(); i++) {
+			Point p1 = ps.LeftLower;
+			Point p2 = ps.RightLower;
+			Point p3 = null;
+			Point p4 = null;
+			if (i == vertexes.size() - 1) {
+				p3 = vertexes.get(i);
+				p4 = vertexes.get(0);
+			}else{
+				p3 = vertexes.get(i);
+				p4 = vertexes.get(i + 1);
+			}
+			
+			if (TwoSidesIntersecting.segmentsIntersect(p1, p2, p3, p4)) {
+				return true;
+			}
+			
+			p1 = ps.LeftLower;
+			p2 = ps.LeftTop;
+			if (TwoSidesIntersecting.segmentsIntersect(p1, p2, p3, p4)) {
+				return true;
+			}
+			
+			p1 = ps.RightTop;
+			p2 = ps.LeftTop;
+			if (TwoSidesIntersecting.segmentsIntersect(p1, p2, p3, p4)) {
+				return true;
+			}
+			
+			p1 = ps.RightTop;
+			p2 = ps.RightLower;
+			if (TwoSidesIntersecting.segmentsIntersect(p1, p2, p3, p4)) {
+				return true;
+			}
+		}
+		
+		return false;
+	}
+
 	//判断多边形的点是否在正方形内
-	protected static boolean isPolygonPointInOrOnSquare(List<Point> vertexes,
-			double longitude, double latitude) {
+	protected static boolean isPolygonPointInOrOnSquare(double longitude, double latitude, List<Point> vertexes) {
 		
 		double lngLeft = (longitude * 100000 - expansion) / 100000;
 		double lngRight = (longitude * 100000 + expansion) / 100000;
