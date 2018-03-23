@@ -1,9 +1,11 @@
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.hadoop.conf.Configuration;
 
@@ -19,7 +21,8 @@ import com.mastercom.rcc.util.PolygonUtil;
 
 public class Main {
 
-	final static int gridSize = 400;
+	final static int gridSize = 400; //栅格大小
+	final static int expansion = 20; //多边形周围20米
 	
 	public static void main(String[] args) {
 		// Step1: 加载 线路配置
@@ -39,7 +42,7 @@ public class Main {
 
 		long startTime = System.currentTimeMillis();// 获取当前时间
 
-		final Map<Point, List<Road>> gridMap = new HashMap<>();
+		final Map<Point, Set<Road>> gridMap = new HashMap<>();
 
 		try {
 			Configuration conf = new Configuration();
@@ -81,13 +84,13 @@ public class Main {
 
 					double longitude = locationItem.longitude;
 					double latitude = locationItem.latitude;
-					List<Road> roadList = findRoadList(longitude, latitude, gridMap);
-					if (roadList != null) {
-						for (int i = 0; i < roadList.size(); i++) {
-							Road road = roadList.get(i);
+					Set<Road> roadSet = findRoadSet(longitude, latitude, gridMap);
+					if (roadSet != null) {
+						for (Road road : roadSet) {
 							List<Point> vertexes = road.polygonPoints;
 
-							if (PolygonUtil.isPointInOrOnPolygon(longitude, latitude, vertexes)) {
+							//点本身在多边形内，或者点对应的正方形的四个点有任意一个点在多边形内，或者判断多边形的点是否在正方形内，或者多边形对应的矩形和正方形有交集
+							if (PolygonUtil.isPointInOrOnPolygon(longitude, latitude, vertexes) || isFourPointInOrOnPolygon(longitude, latitude, vertexes) || isPolygonPointInOrOnSquare(vertexes, longitude, latitude)) {
 								int subId = road.subId;
 								int time = locationItem.itime;
 								int eci = locationItem.eci;
@@ -146,20 +149,104 @@ public class Main {
 
 	}
 
+	//判断多边形的点是否在正方形内
+	protected static boolean isPolygonPointInOrOnSquare(List<Point> vertexes,
+			double longitude, double latitude) {
+		
+		double lngLeft = (longitude * 100000 - expansion) / 100000;
+		double lngRight = (longitude * 100000 + expansion) / 100000;
+		double latLower = (latitude * 100000 - expansion) / 100000;
+		double latTop = (latitude * 100000 + expansion) / 100000;
+		
+		for (Point point : vertexes) {
+			if (point.x >= lngLeft && point.x <= lngRight && point.y >= latLower && point.y <= latTop) {
+				return true;
+			}
+		}
+		
+		return false;
+	}
+	
+	//判断点对应的正方形的四个点是否有任意一个点在多边形内
+	protected static boolean isFourPointInOrOnPolygon(double longitude,
+			double latitude, List<Point> vertexes) {
+		
+		double lngLeft = (longitude * 100000 - expansion) / 100000;
+		double lngRight = (longitude * 100000 + expansion) / 100000;
+		double latLower = (latitude * 100000 - expansion) / 100000;
+		double latTop = (latitude * 100000 + expansion) / 100000;
+		
+		if (PolygonUtil.isPointInOrOnPolygon(lngLeft, latLower, vertexes)) {
+			return true;
+		}
+		if (PolygonUtil.isPointInOrOnPolygon(lngLeft, latTop, vertexes)) {
+			return true;
+		}
+		if (PolygonUtil.isPointInOrOnPolygon(lngRight, latLower, vertexes)) {
+			return true;
+		}
+		if (PolygonUtil.isPointInOrOnPolygon(lngRight, latTop, vertexes)) {
+			return true;
+		}
+		
+		return false;
+		
+	}
+
 	// 筛选道路配置
-	private static List<Road> findRoadList(double longitude, double latitude,
-			Map<Point, List<Road>> gridMap) {
+	private static Set<Road> findRoadSet(double longitude, double latitude,
+			Map<Point, Set<Road>> gridMap) {
 
-		int lngLeftLowerGrid = ((int) (longitude * 100000)) / gridSize
+		int lngLeft = ((int) (longitude * 100000 - expansion)) / gridSize
 				* gridSize;
-		int latLeftLowerGrid = ((int) (latitude * 100000)) / gridSize
+		int lngRight = ((int) (longitude * 100000 + expansion)) / gridSize
 				* gridSize;
+		int latLower = ((int) (latitude * 100000 - expansion)) / gridSize
+				* gridSize;
+		int latTop = ((int) (latitude * 100000 + expansion)) / gridSize
+				* gridSize;
+		
+		Set<Road> roadSet = new HashSet<>();
+		Point point = new Point(lngLeft, latLower);  //临时变量
+		Set<Road> set = gridMap.get(point);  //临时变量
+		if (set != null) {
+			roadSet.addAll(set);
+		}
+		
+		if (lngLeft != lngRight) {
+			point = new Point(lngRight, latLower);  
+			set = gridMap.get(point);
+			if (set != null) {
+				roadSet.addAll(set);
+			}
+		}
+		if (latLower != latTop) {
+			point = new Point(lngLeft, latTop);  
+			set = gridMap.get(point);
+			if (set != null) {
+				roadSet.addAll(set);
+			}
+			
+			point = new Point(lngRight, latTop);  
+			set = gridMap.get(point);
+			if (set != null) {
+				roadSet.addAll(set);
+			}
+		}
 
-		return gridMap.get(new Point(lngLeftLowerGrid, latLeftLowerGrid));
+		return roadSet;
+		
+//		int lngLeft = ((int) (longitude * 100000)) / gridSize
+//		* gridSize;
+//		int latLower = ((int) (latitude * 100000)) / gridSize
+//		* gridSize;
+//		
+//		return gridMap.get(new Point(lngLeft, latLower));
+		
 	}
 
 	// 设置栅格Map
-	private static void setGridMap(Road road, Map<Point, List<Road>> gridMap) {
+	private static void setGridMap(Road road, Map<Point, Set<Road>> gridMap) {
 
 		Point leftLowerPoint = road.leftLowerPoint;
 		Point rightTopPoint = road.rightTopPoint;
@@ -177,14 +264,14 @@ public class Main {
 		for (int i = lngLeftLowerGrid; i <= lngrightTopGrid;) {
 			for (int j = latLeftLowerGrid; j <= latrightTopGrid;) {
 				Point subLeftLowerGrid = new Point(i, j);
-				List<Road> roadList = gridMap.get(subLeftLowerGrid);
-				if (roadList == null) {
-					List<Road> list = new ArrayList<>();
-					list.add(road);
-					gridMap.put(subLeftLowerGrid, list);
+				Set<Road> roadSet = gridMap.get(subLeftLowerGrid);
+				if (roadSet == null) {
+					Set<Road> set = new HashSet<>();
+					set.add(road);
+					gridMap.put(subLeftLowerGrid, set);
 				} else {
-					roadList.add(road);
-					gridMap.put(subLeftLowerGrid, roadList);
+					roadSet.add(road);
+					gridMap.put(subLeftLowerGrid, roadSet);
 				}
 				j = j + gridSize;
 			}

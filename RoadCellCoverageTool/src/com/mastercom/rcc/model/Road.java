@@ -105,5 +105,28 @@ public class Road {
 		lstPoints.add(new Point(lngMax, latMax));//右上点
 		return lstPoints;
 	}
+	
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + Double.hashCode(subId);
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		Road other = (Road) obj;
+		if (subId != other.subId)
+			return false;
+		return true;
+	}
 
 }
