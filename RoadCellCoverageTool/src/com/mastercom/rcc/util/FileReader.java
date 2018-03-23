@@ -89,7 +89,6 @@ public class FileReader {
 		if(!fs.exists(file)){
 			throw new FileNotFoundException(filePath);
 		}
-		
 		String strData = null;
 		
 		try(BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(file), "UTF-8")))

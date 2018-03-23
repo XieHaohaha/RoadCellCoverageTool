@@ -1,7 +1,11 @@
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.hadoop.conf.Configuration;
 
 import com.mastercom.rcc.model.LocationItem;
 import com.mastercom.rcc.model.Point;
@@ -9,31 +13,49 @@ import com.mastercom.rcc.model.Road;
 import com.mastercom.rcc.model.RoadCellCoverage;
 import com.mastercom.rcc.util.FileReader;
 import com.mastercom.rcc.util.FileReader.LineHandler;
+import com.mastercom.rcc.util.FileWriter;
+import com.mastercom.rcc.util.FileWriter.LineGetter;
 import com.mastercom.rcc.util.PolygonUtil;
 
 public class Main {
 
 	final static int gridSize = 400;
-
+	
 	public static void main(String[] args) {
 		// Step1: 加载 线路配置
 
 		// Step1.1：解析多边形的经纬度，存于List容器中
 
 		// Step1.2：以左上右下的点组成的矩形
+		
+		if (args.length < 3) {
+			System.out.println("usage:tbFilePath, dataFilePath, outputPath, HDFSPath" + "\n");
+			System.exit(0);
+		}
+		
+		String tbFilePath = args[0];
+		String dataFilePath = args[1];
+		String outputPath = args[2];
 
 		long startTime = System.currentTimeMillis();// 获取当前时间
 
 		final Map<Point, List<Road>> gridMap = new HashMap<>();
 
 		try {
-			FileReader.readFiles("D:\\tb.txt", new LineHandler() {
-
+			Configuration conf = new Configuration();
+			
+			if (args.length > 3) {
+				String HDFSPath = args[3];
+				conf.set("fs.defaultFS", HDFSPath);//"hdfs://192.168.1.31:9000"
+			}
+			
+			FileReader.readFiles(conf, tbFilePath, new LineHandler() {  //"/tmp/tb.txt"
+			
 				@Override
 				public void handle(String line) {
 
 					String[] words = line.split("\t");
-
+					
 					Road road = new Road(words);
 
 					setGridMap(road, gridMap);
@@ -44,8 +66,8 @@ public class Main {
 
 			// 加载数据
 
-			FileReader.readFile("D:\\loc.dat", new LineHandler() {
-
+			FileReader.readFile(conf, dataFilePath, new LineHandler() {
+			
 				@Override
 				public void handle(String line) {
 
@@ -71,7 +93,7 @@ public class Main {
 								int eci = locationItem.eci;
 								RoadCellCoverage roadCellCoverage = new RoadCellCoverage(subId, time, time, eci);
 
-								String subIdEci = "" + road.subId + "__" + locationItem.eci;
+								String subIdEci = "" + subId + "__" + eci;
 								if (map.keySet().contains(subIdEci)) {
 									RoadCellCoverage coverage = map.get(subIdEci);
 									coverage.num++;
@@ -91,10 +113,29 @@ public class Main {
 				}
 			});
 
-			for (RoadCellCoverage value : map.values()) {
-				System.out.println(value.subId + "\t" + value.stime + "\t"
-						+ value.etime + "\t" + value.eci + "\t" + value.num);
-			}
+			final Collection<RoadCellCoverage> roadCellCoverageCollection = map.values();
+			
+			FileWriter.writeToFile(conf, outputPath, new LineGetter() {  //"D:\\result.txt"
+				
+				Iterator<RoadCellCoverage> iterator = roadCellCoverageCollection.iterator();
+				
+				StringBuilder sb = new StringBuilder();
+				
+				@Override
+				public String next() {
+					RoadCellCoverage next = iterator.next();
+					if (sb.length() > 0) {
+						sb.delete(0, sb.length());
+					}
+					sb.append(next.subId).append("\t").append(next.stime).append("\t").append(next.etime).append("\t").append(next.eci).append("\t").append(next.num);
+					return sb.toString();
+				}
+				
+				@Override
+				public boolean hasNext() {
+					return iterator.hasNext();
+				}
+			});
 
 			long endTime = System.currentTimeMillis();
 			System.out.println("程序运行时间：" + (endTime - startTime) + "ms");
@@ -145,9 +186,9 @@ public class Main {
 					roadList.add(road);
 					gridMap.put(subLeftLowerGrid, roadList);
 				}
-				j = j + 400;
+				j = j + gridSize;
 			}
-			i = i + 400;
+			i = i + gridSize;
 		}
 
 	}
